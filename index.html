@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2196F3">
+    <title>Réexpéditions Facteur</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- Écran d'accueil -->
+<div id="home-screen" class="screen active">
+    <header>
+        <h1>📬 Réexpéditions</h1>
+        <div class="stats">
+            <span id="total-count">0</span> actives
+            <span class="separator">•</span>
+            <span id="expiring-count">0</span> bientôt expirées
+        </div>
+    </header>
+
+    <div class="main-actions">
+        <button class="action-btn primary" onclick="ui.showScreen('scan-register')">
+            📷 Scanner un carton
+        </button>
+        <button class="action-btn secondary" onclick="ui.showScreen('scan-check')">
+            🔍 Vérifier un colis
+        </button>
+        <button class="action-btn tertiary" onclick="ui.showScreen('list')">
+            📋 Liste complète
+        </button>
+    </div>
+
+    <div class="quick-actions">
+        <button class="small-btn" onclick="database.cleanExpired()">
+            🗑️ Nettoyer expirées
+        </button>
+        <button class="small-btn" onclick="ui.showExpiringList()">
+            ⚠️ Expiration proche
+        </button>
+    </div>
+</div>
+
+<!-- Écran scan enregistrement -->
+<div id="scan-register-screen" class="screen">
+    <header>
+        <button class="back-btn" onclick="ui.showScreen('home')">← Retour</button>
+        <h2>Scanner un carton</h2>
+    </header>
+
+    <div class="camera-container">
+        <video id="video-register" autoplay playsinline></video>
+        <canvas id="canvas-register" style="display:none;"></canvas>
+    </div>
+
+    <div class="scan-actions">
+        <button class="action-btn primary" onclick="scanner.captureAndProcess('register')">
+            📸 Capturer
+        </button>
+        <button class="action-btn secondary" onclick="scanner.stopCamera('register')">
+            ❌ Annuler
+        </button>
+    </div>
+
+    <div id="ocr-result-register" class="ocr-result"></div>
+</div>
+
+<!-- Écran scan vérification -->
+<div id="scan-check-screen" class="screen">
+    <header>
+        <button class="back-btn" onclick="ui.showScreen('home')">← Retour</button>
+        <h2>Vérifier un colis</h2>
+    </header>
+
+    <div class="search-manual">
+        <input type="text" id="manual-search" placeholder="ou tapez un nom...">
+        <button onclick="search.manualSearch()">🔍</button>
+    </div>
+
+    <div class="camera-container">
+        <video id="video-check" autoplay playsinline></video>
+        <canvas id="canvas-check" style="display:none;"></canvas>
+    </div>
+
+    <div class="scan-actions">
+        <button class="action-btn primary" onclick="scanner.captureAndProcess('check')">
+            📸 Scanner le nom
+        </button>
+        <button class="action-btn secondary" onclick="scanner.stopCamera('check')">
+            ❌ Annuler
+        </button>
+    </div>
+
+    <div id="search-result" class="search-result"></div>
+</div>
+
+<!-- Écran liste -->
+<div id="list-screen" class="screen">
+    <header>
+        <button class="back-btn" onclick="ui.showScreen('home')">← Retour</button>
+        <h2>Liste des réexpéditions</h2>
+    </header>
+
+    <div class="filters">
+        <button class="filter-btn active" onclick="ui.filterList('all')">Toutes</button>
+        <button class="filter-btn" onclick="ui.filterList('TEMPORAIRE')">🔴 Temporaires</button>
+        <button class="filter-btn" onclick="ui.filterList('DÉFINITIVE')">🟢 Définitives</button>
+    </div>
+
+    <div id="reexp-list" class="reexp-list"></div>
+</div>
+
+<!-- Loading overlay -->
+<div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Analyse en cours...</p>
+</div>
+
+<!-- Scripts -->
+<script src='https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js'></script>
+<script src="js/database.js"></script>
+<script src="js/parser.js"></script>
+<script src="js/scanner.js"></script>
+<script src="js/search.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
