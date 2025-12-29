@@ -1,24 +1,24 @@
 // Gestion de l'interface utilisateur
 
 const ui = {
-
+    
     // Afficher un écran
     showScreen(screenName) {
         // Masquer tous les écrans
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-
+        
         // Afficher l'écran demandé
         const screen = document.getElementById(`${screenName}-screen`);
         if (screen) {
             screen.classList.add('active');
-
+            
             // Démarrer la caméra si nécessaire
             if (screenName === 'scan-register') {
                 scanner.startCamera('register');
             } else if (screenName === 'scan-check') {
                 scanner.startCamera('check');
             }
-
+            
             // Charger la liste si nécessaire
             if (screenName === 'list') {
                 this.loadList('all');
@@ -85,7 +85,7 @@ const ui = {
 
         try {
             const reexps = await database.filterByType(filterType);
-
+            
             if (reexps.length === 0) {
                 listDiv.innerHTML = '<p style="text-align:center; color:#888;">Aucune réexpédition</p>';
                 return;
@@ -95,12 +95,12 @@ const ui = {
             reexps.sort((a, b) => new Date(a.dateFin) - new Date(b.dateFin));
 
             listDiv.innerHTML = '';
-
+            
             reexps.forEach(r => {
                 const typeClass = r.type === 'TEMPORAIRE' ? 'temporaire' : 'definitive';
                 const daysLeft = search.daysUntil(r.dateFin);
-                const expiringWarning = daysLeft <= 7 && daysLeft >= 0
-                    ? `<div class="expiring-soon">⚠️ Expire dans ${daysLeft} jour(s)</div>`
+                const expiringWarning = daysLeft <= 7 && daysLeft >= 0 
+                    ? `<div class="expiring-soon">⚠️ Expire dans ${daysLeft} jour(s)</div>` 
                     : '';
 
                 const item = document.createElement('div');
@@ -161,7 +161,7 @@ const ui = {
     // Afficher la liste des réexpéditions qui expirent bientôt
     async showExpiringList() {
         const expiring = await database.getExpiringSoon();
-
+        
         if (expiring.length === 0) {
             this.showAlert('Aucune réexpédition n\'expire bientôt', 'info');
             return;
@@ -193,5 +193,33 @@ const ui = {
             `;
             listDiv.appendChild(item);
         });
+    },
+
+    // Afficher/masquer le formulaire de saisie manuelle
+    toggleManualForm() {
+        const form = document.getElementById('manual-form');
+        const camera = document.querySelector('#scan-register-screen .camera-container');
+        const scanActions = document.querySelector('#scan-register-screen .scan-actions');
+        const ocrResult = document.getElementById('ocr-result-register');
+
+        if (form.style.display === 'none') {
+            // Afficher le formulaire
+            form.style.display = 'block';
+            camera.style.display = 'none';
+            scanActions.style.display = 'none';
+            ocrResult.style.display = 'none';
+            scanner.stopCamera('register');
+            
+            // Pré-remplir la date du jour pour date début
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('form-debut').value = today;
+        } else {
+            // Masquer le formulaire
+            form.style.display = 'none';
+            camera.style.display = 'block';
+            scanActions.style.display = 'flex';
+            ocrResult.style.display = 'block';
+            scanner.startCamera('register');
+        }
     }
 };
