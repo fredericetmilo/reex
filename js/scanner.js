@@ -7,9 +7,9 @@ const scanner = {
     async startCamera(mode) {
         try {
             const video = document.getElementById(`video-${mode}`);
-
+            
             const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
+                video: { 
                     facingMode: 'environment',
                     width: { ideal: 1920 },
                     height: { ideal: 1080 }
@@ -97,9 +97,10 @@ const scanner = {
         // Parser le texte
         const data = parser.parseCarton(text);
 
+        const resultDiv = document.getElementById('ocr-result-register');
+
         if (data) {
             // Afficher les résultats
-            const resultDiv = document.getElementById('ocr-result-register');
             resultDiv.innerHTML = `
                 <div class="result-card found">
                     <h3>✅ Carton détecté</h3>
@@ -111,11 +112,29 @@ const scanner = {
                     <button class="action-btn primary" onclick="scanner.saveReexpedition(${JSON.stringify(data).replace(/"/g, '&quot;')})">
                         💾 Enregistrer
                     </button>
+                    <details style="margin-top:15px; font-size:12px;">
+                        <summary>🔍 Voir texte OCR brut</summary>
+                        <pre style="background:#f5f5f5; padding:10px; border-radius:5px; overflow:auto; max-height:200px;">${text}</pre>
+                    </details>
                 </div>
             `;
             this.stopCamera('register');
         } else {
-            ui.showAlert('Impossible de lire le carton. Réessayez.', 'error');
+            // Afficher le texte brut même en cas d'erreur pour debug
+            resultDiv.innerHTML = `
+                <div class="result-card not-found">
+                    <h3>❌ Impossible de lire le carton</h3>
+                    <p>Le parsing a échoué. Vérifiez le texte OCR ci-dessous :</p>
+                    <details open style="margin-top:15px; font-size:12px;">
+                        <summary>🔍 Texte OCR détecté</summary>
+                        <pre style="background:#fff3cd; padding:10px; border-radius:5px; overflow:auto; max-height:300px; white-space:pre-wrap;">${text}</pre>
+                    </details>
+                    <button class="action-btn secondary" onclick="scanner.captureAndProcess('register')" style="margin-top:15px;">
+                        📸 Réessayer
+                    </button>
+                </div>
+            `;
+            ui.showAlert('Impossible de lire le carton. Vérifiez le texte OCR.', 'error');
         }
     },
 
@@ -124,6 +143,41 @@ const scanner = {
         try {
             await database.add(data);
             ui.showAlert('✅ Réexpédition enregistrée', 'success');
+            await ui.updateStats();
+            ui.showScreen('home');
+        } catch (error) {
+            console.error('❌ Erreur sauvegarde:', error);
+            ui.showAlert('Erreur lors de l\'enregistrement', 'error');
+        }
+    },
+
+    // Enregistrer depuis le formulaire manuel
+    async saveManual(event) {
+        event.preventDefault();
+
+        const data = {
+            type: document.getElementById('form-type').value,
+            nom: document.getElementById('form-nom').value.toUpperCase().trim(),
+            ancienneAdresse: document.getElementById('form-ancienne').value.trim(),
+            nouvelleAdresse: document.getElementById('form-nouvelle').value.trim(),
+            dateDebut: document.getElementById('form-debut').value,
+            dateFin: document.getElementById('form-fin').value
+        };
+
+        // Validation des dates
+        if (new Date(data.dateFin) < new Date(data.dateDebut)) {
+            ui.showAlert('La date de fin doit être après la date de début', 'error');
+            return;
+        }
+
+        try {
+            await database.add(data);
+            ui.showAlert('✅ Réexpédition enregistrée', 'success');
+            
+            // Réinitialiser le formulaire
+            document.getElementById('reexp-form').reset();
+            ui.toggleManualForm();
+            
             await ui.updateStats();
             ui.showScreen('home');
         } catch (error) {
@@ -150,7 +204,7 @@ const scanner = {
 
         for (const name of names) {
             const results = await database.searchByName(name);
-
+            
             if (results.length > 0) {
                 results.forEach(r => {
                     resultDiv.innerHTML += `
