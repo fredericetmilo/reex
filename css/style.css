@@ -95,20 +95,26 @@ header h1, header h2 {
     color: white;
 }
 
-/* Actions rapides */
+/* Quick actions - nouvelle disposition */
 .quick-actions {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 10px;
+    margin-bottom: 10px;
 }
 
 .small-btn {
-    flex: 1;
     padding: 12px;
     border: 1px solid #ddd;
     background: white;
     border-radius: 8px;
     font-size: 14px;
     cursor: pointer;
+    transition: background 0.2s;
+}
+
+.small-btn:active {
+    background: #f0f0f0;
 }
 
 /* Caméra */
