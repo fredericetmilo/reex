@@ -54,39 +54,52 @@ const parser = {
 
     // Extraire le nom du destinataire
     extractNom(text) {
-        // Méthode 1: Chercher après "Et Serv" ou numéros de service
-        const patterns = [
-            /(?:Et Serv|serv)\s*[12]\s*\d{8,10}\s+[^\n]*\n\s*([A-Z][A-Z\s\-]{5,})/i,
-            /MME\s+([A-Z][A-Z\s\-]+)/i,
-            /M\.\s+([A-Z][A-Z\s\-]+)/i,
-            /MR\s+([A-Z][A-Z\s\-]+)/i,
-            /MONSIEUR\s+([A-Z][A-Z\s\-]+)/i,
-            /MADAME\s+([A-Z][A-Z\s\-]+)/i
-        ];
-
-        for (const pattern of patterns) {
-            const match = text.match(pattern);
-            if (match) {
-                let nom = match[1].trim();
-                // Nettoyer (enlever les lignes suivantes si présentes)
-                nom = nom.split(/\d{5}/)[0].trim();
-                nom = nom.split(/RUE|AVENUE|ALLEE|CHEMIN|RESIDENCE/i)[0].trim();
-                // Enlever les caractères parasites
-                nom = nom.replace(/[^A-Z\s\-]/g, '').trim();
-                if (nom.length > 5 && nom.length < 100) {
-                    return nom;
+        // Nettoyer le texte
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        // Méthode 1: Chercher après les numéros de service
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Si on trouve "Et serv" ou un numéro de service
+            if (/Et\s*[Ss]erv|serv\s*[12]|\d{10}/i.test(line)) {
+                // Le nom est probablement dans les 2-3 lignes suivantes
+                for (let j = i + 1; j < Math.min(i + 4, lines.length); j++) {
+                    const candidateLine = lines[j];
+                    
+                    // Chercher une ligne avec M, MME, MR, MLE suivis d'un nom
+                    const nameMatch = candidateLine.match(/(?:M\s+|MME\s+|MR\s+|MLE\s+|MONSIEUR\s+|MADAME\s+)([A-Z][A-Z\s\-]{5,})/i);
+                    if (nameMatch) {
+                        let nom = nameMatch[0].trim();
+                        // Nettoyer
+                        nom = nom.replace(/[^A-Z\s\-]/g, ' ').replace(/\s+/g, ' ').trim();
+                        if (nom.length >= 8 && nom.length < 100) {
+                            return nom;
+                        }
+                    }
+                    
+                    // Ou une ligne en majuscules qui ressemble à un nom (sans chiffres)
+                    if (/^[A-Z][A-Z\s\-]{10,}$/.test(candidateLine) && !/\d/.test(candidateLine)) {
+                        const nom = candidateLine.replace(/[^A-Z\s\-]/g, ' ').replace(/\s+/g, ' ').trim();
+                        if (nom.length >= 10 && nom.length < 100) {
+                            return nom;
+                        }
+                    }
                 }
             }
         }
 
-        // Méthode 2: Chercher une séquence de mots en majuscules (nom probable)
-        const lines = text.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            // Ligne avec plusieurs mots en majuscules, pas de chiffres
-            if (/^[A-Z][A-Z\s\-]{10,}$/.test(line) && !/\d/.test(line)) {
-                const nom = line.replace(/[^A-Z\s\-]/g, '').trim();
-                if (nom.length > 10 && nom.length < 100) {
+        // Méthode 2: Chercher toutes les lignes avec M/MME
+        const patterns = [
+            /(?:M\s+|MME\s+|MR\s+|MLE\s+)([A-Z][A-Z\s\-]{5,})/gi
+        ];
+
+        for (const pattern of patterns) {
+            const matches = [...text.matchAll(pattern)];
+            if (matches.length > 0) {
+                let nom = matches[0][0].trim();
+                nom = nom.replace(/[^A-Z\s\-]/g, ' ').replace(/\s+/g, ' ').trim();
+                if (nom.length >= 8 && nom.length < 100) {
                     return nom;
                 }
             }
@@ -97,34 +110,39 @@ const parser = {
 
     // Extraire l'ancienne adresse
     extractAncienneAdresse(text) {
-        // Chercher DESTINATAIRE suivi d'une adresse
-        const destPattern = /DESTINATAIRE[^\n]*\n\s*([^\n]+)\n\s*(\d{5})\s+([A-Z\s]+)/i;
-        const destMatch = text.match(destPattern);
-        if (destMatch) {
-            return `${destMatch[1].trim()}, ${destMatch[2]} ${destMatch[3].trim()}`;
-        }
-
-        // Chercher l'adresse après le nom et avant "nouveau contrat" ou "NOUVELLE"
-        const addrPattern = /([A-Z0-9\s,\-]+)\s+(\d{5})\s+([A-Z\s]+)\s+(?:nouveau contrat|NOUVELLE|DESTINATAIRE)/i;
-        const addrMatch = text.match(addrPattern);
-        if (addrMatch) {
-            const addr = `${addrMatch[1].trim()}, ${addrMatch[2]} ${addrMatch[3].trim()}`;
-            if (addr.length < 200) {
-                return addr;
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        // Chercher "DESTINATAIRE" et prendre les lignes au-dessus
+        for (let i = 0; i < lines.length; i++) {
+            if (/DESTINATAIRE/i.test(lines[i])) {
+                // Prendre les 2-3 lignes précédentes
+                const potentialAddr = [];
+                for (let j = Math.max(0, i - 3); j < i; j++) {
+                    const line = lines[j];
+                    // Ignorer les lignes avec "Et Serv", noms, etc.
+                    if (!/Et\s*Serv|\d{10}|^M\s|^MME\s|^MR\s/i.test(line)) {
+                        potentialAddr.push(line);
+                    }
+                }
+                
+                // Chercher rue + code postal
+                const addrText = potentialAddr.join(' ');
+                const cpMatch = addrText.match(/([A-Z0-9\s,\-]+?)\s*(\d{5})\s+([A-Z\s]+)/i);
+                if (cpMatch) {
+                    return `${cpMatch[1].trim()}, ${cpMatch[2]} ${cpMatch[3].trim()}`;
+                }
             }
         }
 
-        // Méthode alternative : chercher une adresse avec code postal (5 chiffres)
-        const lines = text.split('\n');
+        // Méthode alternative : trouver le premier code postal et son contexte
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            const cpMatch = line.match(/(\d{5})/);
+            const cpMatch = lines[i].match(/(\d{5})/);
             if (cpMatch && i > 0) {
-                // Prendre la ligne précédente (rue) + cette ligne (CP + ville)
-                const rue = lines[i-1].trim();
-                const cpVille = line.trim();
-                if (rue.length > 3 && rue.length < 100) {
-                    return `${rue}, ${cpVille}`;
+                const rue = lines[i - 1];
+                const cpVille = lines[i];
+                // Vérifier que c'est bien une adresse (pas un numéro de service)
+                if (rue.length > 5 && /RUE|AVENUE|ALLEE|BOULEVARD|CHEMIN|IMPASSE/i.test(rue)) {
+                    return `${rue.trim()}, ${cpVille.trim()}`;
                 }
             }
         }
@@ -134,34 +152,76 @@ const parser = {
 
     // Extraire la nouvelle adresse
     extractNouvelleAdresse(text) {
-        // Chercher après "NOUVELLE ADR" ou "nouveau contrat"
-        const patterns = [
-            /NOUVELLE\s+ADR[^\n]*\n\s*([^\n]+)\n\s*(\d{5})\s+([A-Z\s]+)/i,
-            /nouveau\s+contrat[^\n]*\n\s*([A-Z\s]+)?\s*([A-Z0-9\s,\-]+)\n\s*(\d{5})\s+([A-Z\s]+)\s+FRANCE/i,
-            /NOUVELLE\s+ADRESSE[^\n]*\n\s*([^\n]+)\n\s*(\d{5})\s+([A-Z\s]+)/i
-        ];
-
-        for (const pattern of patterns) {
-            const match = text.match(pattern);
-            if (match) {
-                // Prendre les derniers groupes (adresse, CP, ville)
-                const groups = match.slice(-3);
-                const addr = groups.join(' ').trim().replace(/\s+/g, ' ');
-                if (addr.length > 10 && addr.length < 200) {
-                    return addr;
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        // Chercher "NOUVELLE ADRESSE" ou juste après "DESTINATAIRE"
+        let startIdx = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (/NOUVELLE\s*ADRESSE/i.test(lines[i])) {
+                startIdx = i + 1;
+                break;
+            }
+        }
+        
+        // Si pas trouvé, chercher après DESTINATAIRE et FRANCE
+        if (startIdx === -1) {
+            for (let i = 0; i < lines.length; i++) {
+                if (/DESTINATAIRE/i.test(lines[i])) {
+                    startIdx = i + 1;
+                    break;
                 }
             }
         }
+        
+        if (startIdx !== -1) {
+            // Collecter les lignes qui semblent être une adresse
+            const addrLines = [];
+            for (let i = startIdx; i < Math.min(startIdx + 6, lines.length); i++) {
+                const line = lines[i];
+                // Ignorer les lignes avec dates, "Définitif", "Temporaire", etc.
+                if (!/Définitif|Temporaire|QLAA|TL\s*\d{4}|\d{2}\/\d{2}\/\d{4}/i.test(line)) {
+                    addrLines.push(line);
+                }
+                // Arrêter si on trouve FRANCE
+                if (/FRANCE/i.test(line)) {
+                    addrLines.push(line);
+                    break;
+                }
+            }
+            
+            // Joindre et nettoyer
+            const fullAddr = addrLines.join(' ').replace(/\s+/g, ' ').trim();
+            
+            // Extraire adresse + CP + ville
+            const cpMatch = fullAddr.match(/([A-Z0-9\s,\-]+?)\s*(\d{5})\s+([A-Z\s]+)/i);
+            if (cpMatch) {
+                return `${cpMatch[1].trim()}, ${cpMatch[2]} ${cpMatch[3].trim()}`.replace(/\s+/g, ' ');
+            }
+            
+            if (fullAddr.length > 15 && fullAddr.length < 300) {
+                return fullAddr;
+            }
+        }
 
-        // Méthode alternative: chercher la deuxième occurrence d'un code postal
-        const cpMatches = [...text.matchAll(/(\d{5})/g)];
+        // Méthode alternative: chercher le deuxième code postal
+        const cpMatches = [];
+        for (let i = 0; i < lines.length; i++) {
+            if (/\d{5}/.test(lines[i])) {
+                cpMatches.push({ index: i, line: lines[i] });
+            }
+        }
+        
         if (cpMatches.length >= 2) {
-            // Prendre la zone autour du deuxième code postal
-            const secondCpIndex = cpMatches[1].index;
-            const substring = text.substring(Math.max(0, secondCpIndex - 100), secondCpIndex + 50);
-            const lines = substring.split('\n').slice(-3);
-            if (lines.length >= 2) {
-                return lines.join(' ').trim().replace(/\s+/g, ' ');
+            const secondCp = cpMatches[1];
+            const addrLines = [];
+            for (let i = Math.max(0, secondCp.index - 3); i <= secondCp.index + 1; i++) {
+                if (i < lines.length && !/DESTINATAIRE|Définitif|Temporaire/i.test(lines[i])) {
+                    addrLines.push(lines[i]);
+                }
+            }
+            const addr = addrLines.join(' ').replace(/\s+/g, ' ').trim();
+            if (addr.length > 15 && addr.length < 300) {
+                return addr;
             }
         }
 
