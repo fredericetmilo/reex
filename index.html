@@ -33,6 +33,15 @@
         </div>
 
         <div class="quick-actions">
+            <button class="small-btn" onclick="database.exportData()">
+                📤 Exporter
+            </button>
+            <button class="small-btn" onclick="ui.showImportDialog()">
+                📥 Importer
+            </button>
+        </div>
+
+        <div class="quick-actions">
             <button class="small-btn" onclick="database.cleanExpired()">
                 🗑️ Nettoyer expirées
             </button>
@@ -161,6 +170,35 @@
         </div>
 
         <div id="reexp-list" class="reexp-list"></div>
+    </div>
+
+    <!-- Dialog Import -->
+    <div id="import-dialog" class="loading" style="display:none;">
+        <div style="background:white; padding:30px; border-radius:12px; max-width:400px; width:90%;">
+            <h3 style="margin-bottom:20px;">📥 Importer des données</h3>
+            
+            <input type="file" id="import-file" accept=".json" style="display:none;" onchange="database.importData(event)">
+            
+            <div style="margin-bottom:20px;">
+                <label style="display:block; margin-bottom:10px;">
+                    <input type="radio" name="import-mode" value="merge" checked> 
+                    <strong>Fusionner</strong> - Ajouter aux données existantes
+                </label>
+                <label style="display:block;">
+                    <input type="radio" name="import-mode" value="replace"> 
+                    <strong>Remplacer</strong> - Effacer tout et remplacer
+                </label>
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button class="action-btn primary" onclick="document.getElementById('import-file').click()" style="flex:1;">
+                    📂 Choisir un fichier
+                </button>
+                <button class="action-btn secondary" onclick="ui.hideImportDialog()" style="flex:1;">
+                    ❌ Annuler
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Loading overlay -->
