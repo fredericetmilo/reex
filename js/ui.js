@@ -221,5 +221,17 @@ const ui = {
             ocrResult.style.display = 'block';
             scanner.startCamera('register');
         }
+    },
+
+    // Afficher le dialogue d'import
+    showImportDialog() {
+        const dialog = document.getElementById('import-dialog');
+        dialog.style.display = 'flex';
+    },
+
+    // Masquer le dialogue d'import
+    hideImportDialog() {
+        const dialog = document.getElementById('import-dialog');
+        dialog.style.display = 'none';
     }
 };
